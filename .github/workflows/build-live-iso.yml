@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_REGISTRY: "ghcr.io/winblues"
-  IMAGE_NAME: "blue9"
+  IMAGE_REGISTRY: "ghcr.io/alexdesiqueira"
+  IMAGE_NAME: "fedora-atomic-blue9"
   DEFAULT_TAG: "latest"
 
 concurrency:

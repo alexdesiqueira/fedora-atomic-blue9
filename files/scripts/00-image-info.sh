@@ -2,14 +2,14 @@
 
 set -ouex pipefail
 
-IMAGE_VENDOR="winblues"
-IMAGE_NAME="blue9"
-IMAGE_PRETTY_NAME="Blue9"
+IMAGE_VENDOR="alexdesiqueira"
+IMAGE_NAME="fedora-atomic-blue9"
+IMAGE_PRETTY_NAME="Fedora Atomic Blue9"
 IMAGE_LIKE="fedora"
-HOME_URL="https://blues.win/9"
-DOCUMENTATION_URL="https://blues.win/9/docs"
-SUPPORT_URL="https://github.com/winblues/blue9/issues"
-BUG_SUPPORT_URL="https://github.com/winblues/blue9/issues"
+HOME_URL="https://github.com/alexdesiqueira/fedora-atomic-blue9"
+DOCUMENTATION_URL="https://github.com/alexdesiqueira/fedora-atomic-blue9"
+SUPPORT_URL="https://github.com/alexdesiqueira/fedora-atomic-blue9/issues"
+BUG_SUPPORT_URL="https://github.com/alexdesiqueira/fedora-atomic-blue9/issues"
 
 IMAGE_INFO="/usr/share/ublue-os/image-info.json"
 IMAGE_REF="ostree-image-signed:docker://ghcr.io/$IMAGE_VENDOR/$IMAGE_NAME"
