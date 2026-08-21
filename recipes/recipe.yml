@@ -3,7 +3,7 @@ name: blue9
 description: OS 9 in an atomic fashion
 
 base-image: ghcr.io/winblues/vauxite
-image-version: 42
+image-version: 44
 
 modules:
   - type: files
@@ -22,6 +22,7 @@ modules:
       - 01-main.sh
       - 10-platinum9.sh
       - 11-b00merang.sh
+      - 20-retrosmart-cursors.sh
       - 22-fonts.sh
       - 90-finalize.sh
 
