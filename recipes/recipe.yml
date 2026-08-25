@@ -2,19 +2,34 @@
 name: fedora-atomic-blue9
 description: OS 9 in an atomic fashion
 
-base-image: ghcr.io/winblues/vauxite
+base-image: quay.io/fedora/fedora-bootc
 image-version: 44
 
 modules:
   - type: files
     files:
       - source: system
-        destination: / # copies files/system/* (* means everything inside it) into your image's root folder /
+        destination: /
 
-  - type: rpm-ostree
+  # Build the Fedora/Xfce workstation layer
+  - type: dnf 
+    group-install:
+      packages:
+        - xfce-desktop-environment
     install:
-      - audacious
-      - plymouth-plugin-script
+      packages:
+        - lightdm
+        - lightdm-gtk
+        - NetworkManager
+        - NetworkManager-wifi
+        - network-manager-applet
+        - gvfs
+        - gvfs-mtp
+        - gvfs-smb
+        - thunar-volman
+        - xdg-desktop-portal
+        - xdg-desktop-portal-gtk
+        - git 
 
   - type: script
     scripts:
@@ -26,22 +41,20 @@ modules:
       - 22-fonts.sh
       - 90-finalize.sh
 
+  - type: systemd
+    system:
+      enabled:
+        - lightdm.service
+        - NetworkManager.service
+
   - type: default-flatpaks
     configurations:
-      - notify: true # Send notification after install/uninstall is finished
+      - notify: true
         scope: system
         install:
         - org.mozilla.firefox
         - com.tomjwatson.Emote
-        - org.geany.Geany
         - org.libreoffice.LibreOffice
 
-  # Regenerate initramfs because of plymouth
-  - type: initramfs
-
-#  - type: bling
-#    install:
-#      - 1password
-
-  - type: signing # this sets up the proper policy & signing files for signed images to work fully
+  - type: signing
 

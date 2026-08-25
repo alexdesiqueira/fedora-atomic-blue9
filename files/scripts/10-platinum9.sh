@@ -20,8 +20,6 @@ unzip System8-master.zip
 cd System8-master
 mv System8 /usr/share/plymouth/themes
 
-plymouth-set-default-theme System8
-
 update-mime-database /usr/share/mime
 gdk-pixbuf-query-loaders-64 --update-cache
 #gtk-update-icon-cache --force --ignore-theme-index /usr/share/icons/NineIcons
