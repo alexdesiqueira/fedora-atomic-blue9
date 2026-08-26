@@ -20,6 +20,7 @@ modules:
       packages:
         - lightdm
         - lightdm-gtk
+        - make
         - NetworkManager
         - NetworkManager-wifi
         - network-manager-applet
@@ -39,7 +40,6 @@ modules:
       - 11-b00merang.sh
       - 20-retrosmart-cursors.sh
       - 22-fonts.sh
-      - 90-finalize.sh
 
   - type: systemd
     system:

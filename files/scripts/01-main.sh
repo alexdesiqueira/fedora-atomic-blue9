@@ -52,5 +52,4 @@ dnf5 -y remove \
   xfconf-devel \
   gobject-introspection-devel \
   libpeas-devel \
-  libdbusmenu-gtk3-devel \
-  git
+  libdbusmenu-gtk3-devel

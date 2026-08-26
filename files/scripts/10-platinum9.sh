@@ -15,11 +15,6 @@ mv OS9-wallpaper /usr/share/backgrounds/Platinum9
 # Greeter background
 montage /usr/share/backgrounds/Platinum9/Finder/OS9_Default.png -tile 10x10 -geometry +0+0 /usr/share/backgrounds/Platinum9/greeter.png
 
-cd boot
-unzip System8-master.zip
-cd System8-master
-mv System8 /usr/share/plymouth/themes
-
 update-mime-database /usr/share/mime
 gdk-pixbuf-query-loaders-64 --update-cache
 #gtk-update-icon-cache --force --ignore-theme-index /usr/share/icons/NineIcons
