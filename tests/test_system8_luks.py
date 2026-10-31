@@ -1,14 +1,20 @@
 """Static, isolated assembly checks; no actual Plymouth daemon required."""
 from pathlib import Path
+import hashlib
 import os
+import re
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import unittest
+import urllib.request
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 EXT = ROOT / "files/system/usr/share/blue9/plymouth/System8-LUKS.append.script"
 BUILDER = ROOT / "files/scripts/12-system8-luks.sh"
+PLATINUM_BUILDER = ROOT / "files/scripts/10-platinum9.sh"
 
 
 class ThemeOverlayTests(unittest.TestCase):
@@ -62,7 +68,7 @@ class ThemeOverlayTests(unittest.TestCase):
             src = root / 'themes/System8'
             src.mkdir(parents=True)
             (src / 'System8.script').write_text('# Attribution preserved\nfun dialog_setup(){}\n')
-            sizes = {'os8_boot.png': (422, 322), 'picasso.png': (448, 126),
+            sizes = {'os8_boot.png': (422, 323), 'picasso.png': (448, 126),
                      'shutdown.png': (448, 126)}
             for name, size in sizes.items():
                 Image.new('RGB', size, '#00ff00').save(src / name)
@@ -89,6 +95,69 @@ class ThemeOverlayTests(unittest.TestCase):
                 self.assertEqual(modified.getpixel((5,5)), (0,255,0))
                 self.assertEqual(upstream.size, modified.size)
             self.assertIn('Name=Blue 9 (System8-LUKS)', (dst / 'System8-LUKS.plymouth').read_text())
+
+    @unittest.skipUnless(os.environ.get('BLUE9_RUN_NETWORK_TESTS') == '1',
+                         'set BLUE9_RUN_NETWORK_TESTS=1 to test the pinned Platinum9 archive')
+    def test_real_pinned_system8_assets(self):
+        if not (shutil.which('magick') or
+                (shutil.which('convert') and shutil.which('identify'))):
+            self.skipTest('ImageMagick unavailable')
+        script = PLATINUM_BUILDER.read_text(encoding='utf-8')
+
+        def pinned_value(name):
+            match = re.search(rf'^readonly {name}="([^"]+)"$', script, re.MULTILINE)
+            self.assertIsNotNone(match, f'{name} is not pinned')
+            return match.group(1)
+
+        commit = pinned_value('PLATINUM9_COMMIT')
+        expected_sha256 = pinned_value('PLATINUM9_SHA256')
+        self.assertRegex(commit, r'^[0-9a-f]{40}$')
+        self.assertRegex(expected_sha256, r'^[0-9a-f]{64}$')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / 'Platinum9.tar.gz'
+            url = f'https://github.com/timnetworks/Platinum9/archive/{commit}.tar.gz'
+            digest = hashlib.sha256()
+            with urllib.request.urlopen(url, timeout=60) as response, archive.open('wb') as output:
+                while chunk := response.read(1024 * 1024):
+                    digest.update(chunk)
+                    output.write(chunk)
+            self.assertEqual(digest.hexdigest(), expected_sha256)
+
+            extracted = root / 'platinum'
+            extracted.mkdir()
+            with tarfile.open(archive, 'r:gz') as source_archive:
+                source_archive.extractall(extracted, filter='data')
+            source_root = next(extracted.iterdir())
+
+            system8_archive = source_root / 'boot/System8-master.zip'
+            self.assertTrue(system8_archive.is_file())
+            with zipfile.ZipFile(system8_archive) as source_zip:
+                source_zip.extractall(root / 'system8')
+            original = root / 'system8/System8-master/System8'
+            self.assertTrue((original / 'System8.script').is_file())
+
+            themes = root / 'themes'
+            shutil.copytree(original, themes / 'System8')
+            original_script_hash = hashlib.sha256(
+                (themes / 'System8/System8.script').read_bytes()).hexdigest()
+            env = os.environ.copy()
+            env.update(PLYMOUTH_THEMES_DIR=str(themes),
+                       SYSTEM8_LUKS_EXTENSION=str(EXT),
+                       SYSTEM8_LUKS_BRANDING_DIR=str(
+                           ROOT / 'files/system/usr/share/blue9/plymouth/branding'),
+                       SYSTEM8_LUKS_SKIP_ACTIVATE='1')
+            subprocess.run(['bash', str(BUILDER)], env=env, check=True,
+                           capture_output=True)
+
+            derived = themes / 'System8-LUKS'
+            self.assertTrue((derived / 'System8-LUKS.plymouth').is_file())
+            self.assertIn('SetDisplayPasswordFunction',
+                          (derived / 'System8.script').read_text(encoding='utf-8'))
+            self.assertEqual(
+                hashlib.sha256((themes / 'System8/System8.script').read_bytes()).hexdigest(),
+                original_script_hash)
 
 
 

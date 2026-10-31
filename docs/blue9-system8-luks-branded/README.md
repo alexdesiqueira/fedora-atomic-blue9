@@ -99,10 +99,11 @@ sudo dracut --force
 
 ## Constraints / test status
 
-- All three overlays and the theme assembly have been tested with **synthetic**
-  PNGs matching the upstream dimensions; the images have not yet been compared
-  pixel-by-pixel against the downloaded Platinum9 archive. In particular, the
-  startup/shutdown word replacements are approximations of the original font.
+- All three overlays and the theme assembly are tested with synthetic fixtures.
+  An opt-in network integration test also verifies the pinned Platinum9 archive,
+  assembles the theme from its real System8 assets, and confirms the original
+  script remains unchanged. The startup/shutdown word replacements remain
+  approximations of the original font.
 
 - The extension is static-tested for its callback registration and integration into the existing Blue9 build structure. **It has not been tested with a real Plymouth daemon or with an encrypted boot** in this environment. Do not treat it as production-validated until the test VM passes.
 - The new Blue 9 text is pre-rendered into PNG overlays, but the theme retains existing early-boot font availability and keyboard mapping; the theme cannot fix a missing `rd.luks.*` mapping, unavailable early-boot display driver, or incorrect initramfs keymap.

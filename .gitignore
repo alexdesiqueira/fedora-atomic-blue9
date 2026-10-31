@@ -6,3 +6,4 @@ cosign.private
 *.iso
 __pycache__/
 *.py[cod]
+/.cache/bluebuild/

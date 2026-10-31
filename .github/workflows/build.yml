@@ -1,4 +1,9 @@
 name: bluebuild
+env:
+  IMAGE_REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: alexdesiqueira
+  IMAGE_NAME: fedora-atomic-blue9
+
 on:
   schedule:
     - cron:
@@ -31,12 +36,65 @@ jobs:
     steps:
       # the build is fully handled by the reusable github action
       - name: Build Custom Image
-        uses: blue-build/github-action@v1.12.0
+        uses: blue-build/github-action@836161eb076426a451e6a0054f722b1153b8b3ad # v1.12.0
         with:
           recipe: ${{ matrix.recipe }}
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
+          cli_version: v0.9.37
+          verify_install: true
 
           # enabled by default, disable if your image is small and you want faster builds
           maximize_build_space: true
+
+      - name: Install image-copy tooling
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Publish immutable build tag
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          IMAGE="${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/${IMAGE_NAME}"
+          RUN_TAG="run-${GITHUB_RUN_ID}"
+
+          echo "${GHCR_TOKEN}" | skopeo login "${IMAGE_REGISTRY}" \
+            --username "${GITHUB_ACTOR}" --password-stdin
+          DIGEST="$(skopeo inspect --format '{{.Digest}}' "docker://${IMAGE}:latest")"
+          skopeo copy --all --preserve-digests \
+            "docker://${IMAGE}@${DIGEST}" \
+            "docker://${IMAGE}:${RUN_TAG}"
+
+          COPIED_DIGEST="$(skopeo inspect --format '{{.Digest}}' "docker://${IMAGE}:${RUN_TAG}")"
+          test "${COPIED_DIGEST}" = "${DIGEST}"
+
+          jq -n \
+            --arg image "${IMAGE}" \
+            --arg tag "${RUN_TAG}" \
+            --arg digest "${DIGEST}" \
+            --arg source_revision "${GITHUB_SHA}" \
+            --arg workflow_run_id "${GITHUB_RUN_ID}" \
+            --arg created_at "$(date --utc --iso-8601=seconds)" \
+            '{image: $image, tag: $tag, digest: $digest,
+              source_revision: $source_revision,
+              workflow_run_id: $workflow_run_id, created_at: $created_at}' \
+            > image-release.json
+
+      - name: Upload image release metadata
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: image-release-${{ github.run_id }}
+          if-no-files-found: error
+          path: image-release.json

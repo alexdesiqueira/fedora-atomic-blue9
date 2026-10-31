@@ -71,7 +71,7 @@ if [[ "${SYSTEM8_LUKS_SKIP_BRANDING:-0}" != "1" ]]; then
     mv -f -- "$temp" "$DEST/$basename"
   }
 
-  brand_png 'os8_boot.png' "$BRANDING_DIR/blue9-boot-overlay.png" '422x322'
+  brand_png 'os8_boot.png' "$BRANDING_DIR/blue9-boot-overlay.png" '422x323'
   brand_png 'picasso.png' "$BRANDING_DIR/blue9-welcome-overlay.png" '448x126'
   brand_png 'shutdown.png' "$BRANDING_DIR/blue9-shutdown-overlay.png" '448x126'
 fi

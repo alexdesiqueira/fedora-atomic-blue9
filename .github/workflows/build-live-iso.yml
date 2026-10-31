@@ -2,17 +2,20 @@
 name: Build Blue9 Live ISO
 
 on:
-  workflow_run:
-    workflows:
-      - bluebuild
-    types:
-      - completed
+  schedule:
+    - cron: "00 10 * * 1" # latest successfully published image, every Monday
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to resolve to an immutable digest
+        required: false
+        default: latest
+        type: string
 
 env:
   IMAGE_REGISTRY: "ghcr.io/alexdesiqueira"
   IMAGE_NAME: "fedora-atomic-blue9"
-  DEFAULT_TAG: "latest"
+  DEFAULT_TAG: ${{ inputs.image_tag || 'latest' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -21,11 +24,6 @@ concurrency:
 jobs:
   build:
     name: Build ISOs
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == github.event.repository.default_branch &&
-      github.event.workflow_run.event != 'pull_request')
     runs-on: 'ubuntu-24.04'
     strategy:
       fail-fast: false
@@ -47,39 +45,88 @@ jobs:
       - name: Format image ref
         id: image_ref
         run: |
-          OUTPUT_NAME="${IMAGE_REGISTRY}/${IMAGE_NAME}:${DEFAULT_TAG}"
-          echo "image_ref=$OUTPUT_NAME" >> "${GITHUB_OUTPUT}"
+          IMAGE_REPOSITORY="${IMAGE_REGISTRY}/${IMAGE_NAME}"
+          {
+            echo "repository=$IMAGE_REPOSITORY"
+            echo "tagged_ref=${IMAGE_REPOSITORY}:${DEFAULT_TAG}"
+          } >> "${GITHUB_OUTPUT}"
 
       # Titanoboa uses sudo/rootful Podman, so pull into root's image storage.
-      - name: Authenticate and pull published image
+      - name: Resolve and pull immutable image
+        id: resolved_image
         env:
           GHCR_TOKEN: ${{ github.token }}
-          IMAGE_REF: ${{ steps.image_ref.outputs.image_ref }}
+          IMAGE_REPOSITORY: ${{ steps.image_ref.outputs.repository }}
+          TAGGED_REF: ${{ steps.image_ref.outputs.tagged_ref }}
         run: |
+          set -euo pipefail
           echo "${GHCR_TOKEN}" | sudo podman login ghcr.io \
             --username "${GITHUB_ACTOR}" \
             --password-stdin
+          sudo podman pull "${TAGGED_REF}"
+          DIGEST="$(sudo podman image inspect --format '{{.Digest}}' "${TAGGED_REF}")"
+          test -n "${DIGEST}"
+          IMAGE_REF="${IMAGE_REPOSITORY}@${DIGEST}"
+          BUILD_ID="${DIGEST#sha256:}"
+          BUILD_ID="${BUILD_ID:0:12}"
           sudo podman pull "${IMAGE_REF}"
+          {
+            echo "image_ref=${IMAGE_REF}"
+            echo "digest=${DIGEST}"
+            echo "build_id=${BUILD_ID}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4
+
+      - name: Verify image signature
+        env:
+          IMAGE_REF: ${{ steps.resolved_image.outputs.image_ref }}
+        run: cosign verify --key cosign.pub "${IMAGE_REF}"
 
       - name: Build ISO
         id: build
         uses: ublue-os/titanoboa@5c457c3d0518bd17e754be0fd98a60d29d26abb4
         with:
-          image-ref: ${{ steps.image_ref.outputs.image_ref }}
+          image-ref: ${{ steps.resolved_image.outputs.image_ref }}
 
       - name: Rename ISO
         id: rename
         env:
           OUTPUT_PATH: ${{ steps.build.outputs.iso-dest }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}-live
-          DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
+          BUILD_ID: ${{ steps.resolved_image.outputs.build_id }}
+          IMAGE_REF: ${{ steps.resolved_image.outputs.image_ref }}
+          IMAGE_DIGEST: ${{ steps.resolved_image.outputs.digest }}
         run: |
-          set -x
+          set -euo pipefail
           mkdir -p output
           OUTPUT_DIRECTORY="$(realpath output)"
-          sha256sum "${OUTPUT_PATH}" | tee "${OUTPUT_DIRECTORY}/${IMAGE_NAME}-${DEFAULT_TAG}.iso-CHECKSUM"
-          mv "${OUTPUT_PATH}" "${OUTPUT_DIRECTORY}/${IMAGE_NAME}-${DEFAULT_TAG}.iso"
-          echo "output_directory=$OUTPUT_DIRECTORY" >> "${GITHUB_OUTPUT}"
+          ISO_NAME="${IMAGE_NAME}-${BUILD_ID}.iso"
+          mv "${OUTPUT_PATH}" "${OUTPUT_DIRECTORY}/${ISO_NAME}"
+          (
+            cd "${OUTPUT_DIRECTORY}"
+            sha256sum "${ISO_NAME}" > "${ISO_NAME}-CHECKSUM"
+          )
+          jq -n \
+            --arg iso_name "${ISO_NAME}" \
+            --arg image_ref "${IMAGE_REF}" \
+            --arg image_digest "${IMAGE_DIGEST}" \
+            --arg build_id "${BUILD_ID}" \
+            --arg created_at "$(date --utc --iso-8601=seconds)" \
+            '{iso_name: $iso_name, image_ref: $image_ref,
+              image_digest: $image_digest, build_id: $build_id,
+              created_at: $created_at}' \
+            > "${OUTPUT_DIRECTORY}/${ISO_NAME}.json"
+          {
+            echo "iso_path=${OUTPUT_DIRECTORY}/${ISO_NAME}"
+            echo "output_directory=$OUTPUT_DIRECTORY"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Validate ISO structure
+        env:
+          ISO_PATH: ${{ steps.rename.outputs.iso_path }}
+        run: tests/validate_iso.sh "${ISO_PATH}"
 
       #- name: Upload to Job Artifacts
         #  uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -99,7 +146,12 @@ jobs:
           RCLONE_CONFIG_R2_REGION: auto
           RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           SOURCE_DIR: ${{ steps.rename.outputs.output_directory }}
+          BUILD_ID: ${{ steps.resolved_image.outputs.build_id }}
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y rclone
-          rclone copy "${SOURCE_DIR}" R2:ublue-ledif
+          rclone copy "${SOURCE_DIR}" "R2:ublue-ledif/releases/${BUILD_ID}"
+          rclone sync "${SOURCE_DIR}" R2:ublue-ledif/latest
+          printf '%s\n' "${BUILD_ID}" > /tmp/blue9-latest-build.txt
+          rclone copyto /tmp/blue9-latest-build.txt R2:ublue-ledif/latest-build.txt

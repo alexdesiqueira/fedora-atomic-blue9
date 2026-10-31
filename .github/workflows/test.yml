@@ -1,0 +1,50 @@
+---
+name: Validate source and theme
+
+on:
+  pull_request:
+  push:
+    paths:
+      - '.github/workflows/**'
+      - 'files/scripts/**'
+      - 'files/system/usr/share/blue9/plymouth/**'
+      - 'recipes/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick python3-pil python3-yaml shellcheck
+
+      - name: Check shell scripts
+        run: |
+          shellcheck files/scripts/*.sh tests/*.sh
+          bash -n files/scripts/*.sh tests/*.sh
+
+      - name: Parse YAML configuration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          for pattern in ('recipes/*.yml', '.github/workflows/*.yml'):
+              for path in Path('.').glob(pattern):
+                  yaml.safe_load(path.read_text(encoding='utf-8'))
+                  print(f'valid YAML: {path}')
+          PY
+
+      - name: Test theme with synthetic and pinned upstream assets
+        env:
+          BLUE9_RUN_NETWORK_TESTS: '1'
+        run: python3 -m unittest discover -s tests -v
