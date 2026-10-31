@@ -16,6 +16,7 @@ dnf5 -y install \
   gobject-introspection-devel \
   libpeas-devel \
   libdbusmenu-gtk3-devel \
+  wayland-protocols-devel \
   git
 
 # Clone and build vala-panel-appmenu
@@ -52,4 +53,5 @@ dnf5 -y remove \
   xfconf-devel \
   gobject-introspection-devel \
   libpeas-devel \
-  libdbusmenu-gtk3-devel
+  libdbusmenu-gtk3-devel \
+  wayland-protocols-devel
