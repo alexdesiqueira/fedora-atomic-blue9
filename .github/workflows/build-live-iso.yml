@@ -1,5 +1,5 @@
 ---
-name: Build Blue9 Live ISO
+name: Build Blue9 ISO
 
 on:
   schedule:

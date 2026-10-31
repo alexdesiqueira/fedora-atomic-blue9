@@ -1,4 +1,4 @@
-name: bluebuild
+name: Build Blue9 image using BlueBuild 
 env:
   IMAGE_REGISTRY: ghcr.io
   IMAGE_NAMESPACE: alexdesiqueira
