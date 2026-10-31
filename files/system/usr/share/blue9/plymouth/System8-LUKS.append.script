@@ -1,0 +1,117 @@
+
+#----------------------------------------------------------------------------------------
+# System8 LUKS / question-prompt extension for Plymouth
+# This extension is designed to be appended to the original System8.script
+# by akasaka / Genjitsu Labs (2019), preserving its original attribution.
+# Modification: LUKS-aware input dialogs for the original System8 Mac OS 8 UI.
+# Script adaptation: 2026. Licensed CC BY-SA 4.0, matching original script.
+# IMPORTANT: Plymouth controls password input. This theme only renders the
+# *number* of masked characters reported by Plymouth; it never reads secrets.
+#----------------------------------------------------------------------------------------
+
+# Use the existing System8 message.png dialog and the existing placement.
+# Its icon takes up the first ~84 px; text starts to the right of that icon.
+system8_luks.active = 0;             # 0 none, 1 password, 2 question
+system8_luks.label = Sprite();
+system8_luks.entry = Sprite();
+system8_luks.hint = Sprite();
+system8_luks.label.SetPosition(picasso_x + 84, picasso_y + 21, 10001);
+system8_luks.entry.SetPosition(picasso_x + 84, picasso_y + 53, 10001);
+system8_luks.hint.SetPosition(picasso_x + 84, picasso_y + 85, 10001);
+system8_luks.label.SetOpacity(0);
+system8_luks.entry.SetOpacity(0);
+system8_luks.hint.SetOpacity(0);
+
+# Scale text only when necessary to keep it inside the original Mac dialog.
+# A generic fallback avoids turning very long cryptsetup prompts into tiny text.
+fun system8_luks_label_image (given, fallback) {
+    if (!given || given == "") given = fallback;
+    result = Image.Text(given, 0, 0, 0);
+    if (result.GetWidth() > 345) result = Image.Text(fallback, 0, 0, 0);
+    return result;
+}
+
+fun system8_luks_entry_image (entry_text) {
+    result = Image.Text(entry_text, 0, 0, 0);
+    if (result.GetWidth() > 345)
+        result = result.Scale(345, result.GetHeight());
+    return result;
+}
+
+fun system8_luks_begin (requested_mode, prompt, fallback) {
+    if (system8_luks.active != requested_mode) {
+        # Preserve the original checkerboard, message window and its icon.
+        dialog_setup();
+        message_sprite.SetOpacity(0);
+        if (requested_mode == 1)
+            system8_luks.hint.SetImage(Image.Text("Press Enter to unlock", 0, 0, 0));
+        else
+            system8_luks.hint.SetImage(Image.Text("Press Enter to continue", 0, 0, 0));
+    }
+    system8_luks.active = requested_mode;
+    system8_luks.label.SetImage(system8_luks_label_image(prompt, fallback));
+    system8_luks.label.SetOpacity(1);
+    system8_luks.entry.SetOpacity(1);
+    system8_luks.hint.SetOpacity(1);
+}
+
+fun system8_luks_display_password (prompt, bullet_count) {
+    system8_luks_begin(1, prompt, "Unlock encrypted disk");
+
+    # Plymouth gives us only the bullet count; never request the passphrase.
+    # Capping the visible stars keeps the text inside the 1997-era dialog.
+    mask = "";
+    if (bullet_count <= 0) {
+        mask = "_";
+    } else {
+        for (n = 0; n < bullet_count && n < 24; n++) mask = mask + "*";
+        if (bullet_count > 24) mask = mask + "...";
+    }
+    system8_luks.entry.SetImage(system8_luks_entry_image("Passphrase: [ " + mask + " ]"));
+}
+
+fun system8_luks_display_question (prompt, text_entered) {
+    system8_luks_begin(2, prompt, "Input required");
+    # Even though Plymouth labels these as nonpassword questions, we avoid
+    # echoing their raw answers: a misconfigured early-boot helper could
+    # use the question path for a sensitive value.
+    if (!text_entered || text_entered == "")
+        system8_luks.entry.SetImage(system8_luks_entry_image("Input: [ _ ]"));
+    else
+        system8_luks.entry.SetImage(system8_luks_entry_image("Input: [ hidden ]"));
+}
+
+fun system8_luks_display_normal () {
+    system8_luks.active = 0;
+    system8_luks.label.SetOpacity(0);
+    system8_luks.entry.SetOpacity(0);
+    system8_luks.hint.SetOpacity(0);
+    message_sprite.SetOpacity(0);
+    # Original callback restores the boot window after the dialog.
+    display_normal_callback();
+    # The original hide_icons() makes previously spawned extension icons
+    # invisible; make them visible again when returning to normal boot.
+    if (stage == 1) {
+        for (restored = 0; restored < icon_i; restored++)
+            icons[restored].SetOpacity(1);
+    }
+}
+
+fun system8_luks_display_message (text) {
+    if (system8_luks.active != 0) {
+        # Some cryptsetup errors arrive as messages between password prompts.
+        # Keep the prompt visible and show the error/status in its hint line.
+        if (text && text != "") {
+            system8_luks.hint.SetImage(system8_luks_label_image(text, "Try again or check keyboard layout"));
+            system8_luks.hint.SetOpacity(1);
+        }
+    } else {
+        message_sprite.SetOpacity(1);
+        message_callback(text);
+    }
+}
+
+Plymouth.SetDisplayPasswordFunction(system8_luks_display_password);
+Plymouth.SetDisplayQuestionFunction(system8_luks_display_question);
+Plymouth.SetDisplayNormalFunction(system8_luks_display_normal);
+Plymouth.SetMessageFunction(system8_luks_display_message);

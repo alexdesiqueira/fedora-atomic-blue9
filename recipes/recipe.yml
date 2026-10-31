@@ -31,6 +31,9 @@ modules:
         - xdg-desktop-portal
         - xdg-desktop-portal-gtk
         - git 
+        - plymouth
+        - plymouth-plugin-script
+        - plymouth-system-theme
 
   - type: script
     scripts:
@@ -38,6 +41,7 @@ modules:
       - 01-main.sh
       - 10-platinum9.sh
       - 11-b00merang.sh
+      - 12-system8-luks.sh
       - 20-retrosmart-cursors.sh
       - 22-fonts.sh
 
@@ -46,6 +50,10 @@ modules:
       enabled:
         - lightdm.service
         - NetworkManager.service
+
+  - type: script
+    scripts:
+      - 90-finalize.sh
 
   - type: default-flatpaks
     configurations:
@@ -56,5 +64,7 @@ modules:
         - com.tomjwatson.Emote
         - org.libreoffice.LibreOffice
 
-  - type: signing
+  # Embed the selected System8-LUKS Plymouth theme and disk-unlock UI.
+  - type: initramfs
 
+  - type: signing

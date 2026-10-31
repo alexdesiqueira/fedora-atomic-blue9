@@ -4,7 +4,7 @@ set -xeuo pipefail
 
 cd /tmp
 wget https://github.com/timnetworks/Platinum9/archive/refs/heads/master.zip
-unzip *.zip
+unzip ./*.zip
 cd Platinum9-master
 
 mv NineIcons /usr/share/icons
@@ -14,6 +14,11 @@ mv OS9-wallpaper /usr/share/backgrounds/Platinum9
 
 # Greeter background
 montage /usr/share/backgrounds/Platinum9/Finder/OS9_Default.png -tile 10x10 -geometry +0+0 /usr/share/backgrounds/Platinum9/greeter.png
+
+# Install the original System8 assets used by the LUKS-capable Blue9 theme.
+cd boot
+unzip System8-master.zip
+mv System8-master/System8 /usr/share/plymouth/themes
 
 update-mime-database /usr/share/mime
 gdk-pixbuf-query-loaders-64 --update-cache
