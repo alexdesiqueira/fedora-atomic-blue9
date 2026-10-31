@@ -1,0 +1,11 @@
+diff --git a/recipes/recipe.yml b/recipes/recipe.yml
+--- a/recipes/recipe.yml
++++ b/recipes/recipe.yml
+@@ -20,6 +20,7 @@ modules:
+       - 01-main.sh
+       - 10-platinum9.sh
+       - 11-b00merang.sh
++      - 12-system8-luks.sh
+       - 22-fonts.sh
+       - 90-finalize.sh
+ 

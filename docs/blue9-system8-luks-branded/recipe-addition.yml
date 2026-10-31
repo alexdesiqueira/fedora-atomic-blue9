@@ -1,0 +1,21 @@
+# Insert the 12-system8-luks.sh entry into your EXISTING script module.
+# Keep the existing Blue9 files module and the initramfs module.
+modules:
+  - type: files
+    files:
+      - source: system
+        destination: /
+  - type: rpm-ostree
+    install:
+      - plymouth-plugin-script
+  - type: script
+    scripts:
+      - 00-image-info.sh
+      - 01-main.sh
+      - 10-platinum9.sh
+      - 11-b00merang.sh
+      - 12-system8-luks.sh  # added: after 10-platinum9.sh
+      - 22-fonts.sh
+      - 90-finalize.sh
+  # Keep this after the theme setup. BlueBuild rebuilds initramfs.
+  - type: initramfs

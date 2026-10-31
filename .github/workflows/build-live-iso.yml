@@ -2,9 +2,11 @@
 name: Build Blue9 Live ISO
 
 on:
-  schedule:
-    - cron:
-        "00 10 * * 1" # build at 10:00 UTC every Monday
+  workflow_run:
+    workflows:
+      - bluebuild
+    types:
+      - completed
   workflow_dispatch:
 
 env:
@@ -19,6 +21,11 @@ concurrency:
 jobs:
   build:
     name: Build ISOs
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+      github.event.workflow_run.event != 'pull_request')
     runs-on: 'ubuntu-24.04'
     strategy:
       fail-fast: false
@@ -40,18 +47,25 @@ jobs:
       - name: Format image ref
         id: image_ref
         run: |
-          OUTPUT_NAME="${IMAGE_REGISTRY}/${IMAGE_NAME}"
+          OUTPUT_NAME="${IMAGE_REGISTRY}/${IMAGE_NAME}:${DEFAULT_TAG}"
           echo "image_ref=$OUTPUT_NAME" >> "${GITHUB_OUTPUT}"
-          
+
+      # Titanoboa uses sudo/rootful Podman, so pull into root's image storage.
+      - name: Authenticate and pull published image
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          IMAGE_REF: ${{ steps.image_ref.outputs.image_ref }}
+        run: |
+          echo "${GHCR_TOKEN}" | sudo podman login ghcr.io \
+            --username "${GITHUB_ACTOR}" \
+            --password-stdin
+          sudo podman pull "${IMAGE_REF}"
 
       - name: Build ISO
         id: build
-        uses: ublue-os/titanoboa@main
+        uses: ublue-os/titanoboa@5c457c3d0518bd17e754be0fd98a60d29d26abb4
         with:
-          livesys: "true"
-          image-ref: ${{ steps.image_ref.outputs.image_ref }}:latest
-          flatpaks-list: ${{ github.workspace }}/files/system/etc/ublue-os/system-flatpaks.list
-          #hook-post-rootfs: ${{ github.workspace }}/iso_files/configure_iso.sh
+          image-ref: ${{ steps.image_ref.outputs.image_ref }}
 
       - name: Rename ISO
         id: rename
