@@ -2,7 +2,7 @@
 name: fedora-atomic-blue9
 description: OS 9 in an atomic fashion
 blue-build-tag: v0.9.37
-cosign-version: v3.1.1
+cosign-version: 3.1.1
 
 base-image: quay.io/fedora/fedora-bootc
 image-version: 44
