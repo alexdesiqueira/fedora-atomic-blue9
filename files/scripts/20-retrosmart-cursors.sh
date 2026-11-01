@@ -24,8 +24,8 @@ tar --extract --gzip --file "$RETROSMART_ARCHIVE" \
   --directory "$RETROSMART_SOURCE" --strip-components=1
 cd "$RETROSMART_SOURCE"
 
-# Build and install cursors system-wide
-make
+# Build the themes without upstream's optional OCS archive packaging.
+make xpmtheme svgtheme
 make install PREFIX=/usr
 
 # Clean up
