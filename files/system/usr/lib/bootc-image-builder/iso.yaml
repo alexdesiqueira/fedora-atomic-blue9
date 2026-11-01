@@ -1,0 +1,11 @@
+label: Blue9-Live
+grub2:
+  default: 0
+  timeout: 10
+  entries:
+    - name: Start Blue9 Live
+      linux: /images/pxeboot/vmlinuz root=live:CDLABEL=Blue9-Live rd.live.image quiet rhgb
+      initrd: /images/pxeboot/initrd.img
+    - name: Start Blue9 Live (basic graphics)
+      linux: /images/pxeboot/vmlinuz root=live:CDLABEL=Blue9-Live rd.live.image quiet rhgb nomodeset
+      initrd: /images/pxeboot/initrd.img

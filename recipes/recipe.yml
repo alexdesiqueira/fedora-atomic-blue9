@@ -36,6 +36,7 @@ modules:
         - plymouth
         - plymouth-plugin-script
         - plymouth-system-theme
+        - dracut-live
 
   - type: script
     scripts:
