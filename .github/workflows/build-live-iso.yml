@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
     permissions:
-      contents: read
+      contents: write
       packages: read
       id-token: write
 
@@ -133,30 +133,34 @@ jobs:
           ISO_PATH: ${{ steps.rename.outputs.iso_path }}
         run: tests/validate_iso.sh "${ISO_PATH}"
 
-      #- name: Upload to Job Artifacts
-        #  uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        #with:
-        #  name: ${{ env.IMAGE_NAME }}-${{ env.DEFAULT_TAG }}-iso
-        #  if-no-files-found: error
-        #  path: ${{ steps.build.outputs.iso-dest }}
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: blue9-live-${{ steps.resolved_image.outputs.build_id }}
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            ${{ steps.rename.outputs.iso_path }}
+            ${{ steps.rename.outputs.iso_path }}-CHECKSUM
+            ${{ steps.rename.outputs.iso_path }}.json
 
-      - name: Upload to CloudFlare
-        if: github.event_name != 'pull_request'
-        shell: bash
+      - name: Publish GitHub release
         env:
-          RCLONE_CONFIG_R2_TYPE: s3
-          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
-          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          RCLONE_CONFIG_R2_REGION: auto
-          RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          SOURCE_DIR: ${{ steps.rename.outputs.output_directory }}
+          GH_TOKEN: ${{ github.token }}
+          ISO_PATH: ${{ steps.rename.outputs.iso_path }}
           BUILD_ID: ${{ steps.resolved_image.outputs.build_id }}
+          IMAGE_REF: ${{ steps.resolved_image.outputs.image_ref }}
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y rclone
-          rclone copy "${SOURCE_DIR}" "R2:ublue-ledif/releases/${BUILD_ID}"
-          rclone sync "${SOURCE_DIR}" R2:ublue-ledif/latest
-          printf '%s\n' "${BUILD_ID}" > /tmp/blue9-latest-build.txt
-          rclone copyto /tmp/blue9-latest-build.txt R2:ublue-ledif/latest-build.txt
+          size="$(stat -c %s "${ISO_PATH}")"
+          if (( size >= 2 * 1024 * 1024 * 1024 )); then
+            echo "::warning::ISO is ${size} bytes and exceeds GitHub's release asset limit; available as a workflow artifact instead."
+            exit 0
+          fi
+          tag="live-${BUILD_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "${tag}" \
+            --target "${GITHUB_SHA}" \
+            --title "Blue9 live ${BUILD_ID}" \
+            --notes "Live ISO built from ${IMAGE_REF}." \
+            --prerelease \
+            "${ISO_PATH}" "${ISO_PATH}-CHECKSUM" "${ISO_PATH}.json"

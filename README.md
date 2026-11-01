@@ -11,7 +11,7 @@ Blue9 is a modern and lightweight Linux desktop experience with the look of clas
 > [!NOTE]  
 > Live CD is a new feature and is still in testing.
 
-We are now creating a [Live ISO](https://pub-969fbc86b5f24e4d81c6d022e8fd8dde.r2.dev/blue9-live-latest.iso) that can be used to boot into a Blue9 live environment. Test it out without needing to install anything.
+We are now creating a Live ISO that can be used to boot into a Blue9 live environment. Test it out without needing to install anything. Find downloads in [GitHub Releases](https://github.com/alexdesiqueira/fedora-atomic-blue9/releases), or download the artifact from a successful ISO workflow run. Release uploads are skipped if the ISO exceeds GitHub's asset size limit.
 
 ## Notes
 
