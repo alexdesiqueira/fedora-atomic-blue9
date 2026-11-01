@@ -19,7 +19,8 @@ for required in \
   /LiveOS/squashfs.img \
   /images/pxeboot/vmlinuz \
   /images/pxeboot/initrd.img; do
-  grep -Fxq "$required" <<< "$listing" || {
+  # xorriso's find -exec echo prints shell-quoted paths.
+  grep -Fxq "'$required'" <<< "$listing" || {
     echo "ERROR: ISO is missing $required" >&2
     exit 1
   }
