@@ -123,6 +123,11 @@ jobs:
             echo "output_directory=$OUTPUT_DIRECTORY"
           } >> "${GITHUB_OUTPUT}"
 
+      - name: Install ISO validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso
+
       - name: Validate ISO structure
         env:
           ISO_PATH: ${{ steps.rename.outputs.iso_path }}
